@@ -53,10 +53,29 @@ function checkBinaryAvailable(cmd: string, flag = '--version'): boolean {
   }
 }
 
+// Binary probes are SLOW on small instances (yt-dlp is a Python zipapp;
+// a cold `--version` spawn can take seconds and spawnSync blocks the event
+// loop). Probing on every /api/health request made platform health checks
+// time out and got the instance restart-looped on Render's free tier.
+// So: probe once at boot, cache the result, refresh in the background.
+const binaryStatus = { ytDlp: false, ffmpeg: false };
+function refreshBinaryStatus(): void {
+  binaryStatus.ytDlp = checkBinaryAvailable(process.env.YT_DLP_PATH || 'yt-dlp', '--version');
+  binaryStatus.ffmpeg = checkBinaryAvailable('ffmpeg', '-version');
+}
+refreshBinaryStatus();
+const binaryRefreshTimer = setInterval(refreshBinaryStatus, 5 * 60 * 1000);
+binaryRefreshTimer.unref();
+
+// Lightweight liveness probe for platform health checks — must stay instant.
+app.get('/healthz', (req: Request, res: Response) => {
+  res.status(200).json({ ok: true });
+});
+
 // System Health & Engine Diagnostics
 app.get('/api/health', (req: Request, res: Response) => {
-  const ytdlpOk = checkBinaryAvailable(process.env.YT_DLP_PATH || 'yt-dlp', '--version');
-  const ffmpegOk = checkBinaryAvailable('ffmpeg', '-version');
+  const ytdlpOk = binaryStatus.ytDlp;
+  const ffmpegOk = binaryStatus.ffmpeg;
 
   res.json({
     status: ytdlpOk && ffmpegOk ? 'healthy' : 'degraded',
