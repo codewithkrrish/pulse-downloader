@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: pulse-downloader
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production

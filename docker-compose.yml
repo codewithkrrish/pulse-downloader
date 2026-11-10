@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  pulse-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pulse-media-downloader
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - YT_DLP_PATH=/usr/local/bin/yt-dlp
